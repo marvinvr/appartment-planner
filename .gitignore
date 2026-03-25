@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+
+# package manager artifacts
+.pnpm-store/
+.npm/
+yarn-error.log*
+
+# next.js
+.next/
+out/
+
+# build output
+dist/
+build/
+*.tgz
+
+# runtime data
+data/
+
+# coverage
+coverage/
+*.lcov
+
+# logs
+logs/
+*.log
+report.*.json
+
+# environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# caches
+.cache/
+.eslintcache
+*.tsbuildinfo
+
+# editor and OS files
+.idea/
+.DS_Store

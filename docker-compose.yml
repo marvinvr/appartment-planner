@@ -1,0 +1,23 @@
+services:
+  floorplanner:
+    build: .
+    container_name: planner
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=file:/data/db/floorplanner.db
+      - UPLOAD_DIR=/data/uploads
+    volumes:
+      - floorplanner_data:/data
+    networks:
+      - mvr-hl
+    labels:
+      - "docktail.service.enable=true"
+      - "docktail.service.name=planner"
+      - "docktail.service.port=3000"
+
+networks:
+  mvr-hl:
+    external: true
+
+volumes:
+  floorplanner_data:
