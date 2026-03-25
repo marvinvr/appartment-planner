@@ -17,12 +17,45 @@ Self-hosted floor plan layout planner built with Next.js, React Konva, Drizzle, 
 3. Start the app: `bun run dev`
 4. Open `http://localhost:3000`
 
-## Docker
+## Docker Compose
 
-Run the app with Docker Compose:
+A `Dockerfile` is included for local builds, but the simplest setup is to run the published GHCR image with Docker Compose.
+The published image is `ghcr.io/marvinvr/appartment-planner:latest`.
+
+Create a `compose.yml` file with:
+
+```yaml
+services:
+  appartment-planner:
+    image: ghcr.io/marvinvr/appartment-planner:latest
+    container_name: appartment-planner
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: file:/data/db/floorplanner.db
+      UPLOAD_DIR: /data/uploads
+      NEXT_PUBLIC_PDF_RENDER_SCALE: "1"
+    volumes:
+      - appartment_planner_data:/data
+
+volumes:
+  appartment_planner_data:
+```
+
+Start it with:
 
 ```bash
-docker compose up --build
+docker compose up -d
+```
+
+Then open `http://localhost:3000`.
+
+To update later:
+
+```bash
+docker compose pull
+docker compose up -d
 ```
 
 ## Stack
