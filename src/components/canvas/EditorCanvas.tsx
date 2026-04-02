@@ -4,6 +4,8 @@ import { Stage, Layer, Transformer } from "react-konva";
 import Konva from "konva";
 import FloorplanBackground from "./FloorplanBackground";
 import FurniturePiece from "./FurniturePiece";
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 import { renderPdfPageToDataUrl } from "@/lib/renderPdf";
 
 const PALETTE = [
@@ -295,83 +297,104 @@ export default function EditorCanvas({
           ))}
         </div>
 
-        {/* Add/Edit form */}
-        {showForm ? (
-          <form onSubmit={handleFormSubmit} className="border-t pt-3 mt-3 space-y-2">
-            <h4 className="text-xs font-semibold text-gray-600">
-              {editingId ? "Edit Item" : "New Item"}
-            </h4>
+        <button
+          onClick={openAddForm}
+          className="mt-3 w-full border-2 border-dashed rounded py-2 text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600"
+        >
+          + Add Item
+        </button>
+      </div>
+
+      <Modal
+        open={showForm}
+        onClose={resetForm}
+        title={editingId ? "Edit Furniture Item" : "Add Furniture Item"}
+      >
+        <form onSubmit={handleFormSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label htmlFor="planning-furniture-name" className="text-sm font-medium text-gray-700">
+              Name
+            </label>
             <input
+              id="planning-furniture-name"
               type="text"
-              placeholder="Name"
+              placeholder="Chair, Sofa, Dining Table..."
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               required
-              className="w-full border rounded px-2 py-1.5 text-sm"
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
-            <div className="flex gap-2">
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label htmlFor="planning-furniture-width" className="text-sm font-medium text-gray-700">
+                Length (cm)
+              </label>
               <input
+                id="planning-furniture-width"
                 type="number"
-                placeholder="Length (cm)"
+                placeholder="200"
                 value={form.widthCm}
                 onChange={(e) => setForm((f) => ({ ...f, widthCm: e.target.value }))}
                 required
                 min="1"
                 step="0.1"
-                className="w-1/2 border rounded px-2 py-1.5 text-sm"
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="planning-furniture-height" className="text-sm font-medium text-gray-700">
+                Width (cm)
+              </label>
               <input
+                id="planning-furniture-height"
                 type="number"
-                placeholder="Width (cm)"
+                placeholder="90"
                 value={form.heightCm}
                 onChange={(e) => setForm((f) => ({ ...f, heightCm: e.target.value }))}
                 required
                 min="1"
                 step="0.1"
-                className="w-1/2 border rounded px-2 py-1.5 text-sm"
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
             </div>
-            {/* Color palette */}
-            <div className="flex flex-wrap gap-1.5">
+          </div>
+
+          <div className="space-y-2">
+            <div>
+              <h4 className="text-sm font-medium text-gray-700">Color</h4>
+              <p className="text-xs text-gray-500">Used for the item on the planning canvas.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
               {PALETTE.map((c) => (
                 <button
                   key={c}
                   type="button"
+                  aria-label={`Select color ${c}`}
                   onClick={() => setForm((f) => ({ ...f, color: c }))}
-                  className="w-6 h-6 rounded-full border-2 transition-transform"
+                  className="h-8 w-8 rounded-full border-2 transition-transform"
                   style={{
                     backgroundColor: c,
-                    borderColor: form.color === c ? "#374151" : "transparent",
-                    transform: form.color === c ? "scale(1.2)" : "scale(1)",
+                    borderColor: form.color === c ? "#1f2937" : "#e5e7eb",
+                    transform: form.color === c ? "scale(1.08)" : "scale(1)",
                   }}
                 />
               ))}
             </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="flex-1 text-sm px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                {editingId ? "Save" : "Add"}
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="text-sm px-3 py-1.5 border rounded hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : (
-          <button
-            onClick={openAddForm}
-            className="mt-3 w-full border-2 border-dashed rounded py-2 text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600"
-          >
-            + Add Item
-          </button>
-        )}
-      </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={resetForm}>
+              Cancel
+            </Button>
+            <Button type="submit">
+              {editingId ? "Save Changes" : "Add Item"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Canvas area */}
       <div className="flex-1 flex flex-col">
