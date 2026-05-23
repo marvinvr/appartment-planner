@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Stage, Layer, Transformer } from "react-konva";
+import { Stage, Layer, Transformer, Circle, Line, Label, Tag, Text } from "react-konva";
 import Konva from "konva";
 import FloorplanBackground from "./FloorplanBackground";
 import FurniturePiece from "./FurniturePiece";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import { renderPdfPageToDataUrl } from "@/lib/renderPdf";
+import { pixelDistance } from "@/lib/calibration";
 
 const PALETTE = [
   "#93c5fd", // blue
@@ -27,6 +28,14 @@ function pickColor(usedColors: string[]): string {
   return PALETTE[Math.floor(Math.random() * PALETTE.length)];
 }
 
+function formatMeasureDistance(cm: number): string {
+  if (cm >= 100) {
+    const meters = cm / 100;
+    return `${meters >= 10 ? meters.toFixed(1) : meters.toFixed(2)} m`;
+  }
+  return `${Math.round(cm)} cm`;
+}
+
 interface FurnitureItem {
   id: number;
   name: string;
@@ -41,6 +50,73 @@ interface Placement {
   xPx: number;
   yPx: number;
   rotationDeg: number;
+}
+
+interface MeasurePoint {
+  x: number;
+  y: number;
+}
+
+function measureDistanceCm(point1: MeasurePoint, point2: MeasurePoint, pixelsPerCm: number): number {
+  return pixelDistance(point1.x, point1.y, point2.x, point2.y) / pixelsPerCm;
+}
+
+function MeasureOverlay({
+  point1,
+  point2,
+  previewPoint,
+  pixelsPerCm,
+}: {
+  point1: MeasurePoint | null;
+  point2: MeasurePoint | null;
+  previewPoint: MeasurePoint | null;
+  pixelsPerCm: number;
+}) {
+  const activePoint2 = point2 ?? previewPoint;
+  if (!point1) return null;
+
+  const labelText = activePoint2
+    ? formatMeasureDistance(measureDistanceCm(point1, activePoint2, pixelsPerCm))
+    : null;
+  const labelX = activePoint2 ? (point1.x + activePoint2.x) / 2 : point1.x;
+  const labelY = activePoint2 ? (point1.y + activePoint2.y) / 2 : point1.y - 24;
+
+  return (
+    <>
+      {activePoint2 && (
+        <Line
+          points={[point1.x, point1.y, activePoint2.x, activePoint2.y]}
+          stroke="#2563eb"
+          strokeWidth={2}
+          dash={point2 ? undefined : [6, 6]}
+        />
+      )}
+      <Circle x={point1.x} y={point1.y} radius={5} fill="#2563eb" stroke="#ffffff" strokeWidth={2} />
+      {activePoint2 && (
+        <Circle
+          x={activePoint2.x}
+          y={activePoint2.y}
+          radius={5}
+          fill="#2563eb"
+          stroke="#ffffff"
+          strokeWidth={2}
+        />
+      )}
+      {labelText && (
+        <Label x={labelX} y={labelY} offsetX={36} offsetY={28}>
+          <Tag
+            fill="#111827"
+            opacity={0.9}
+            cornerRadius={4}
+            pointerDirection="down"
+            pointerWidth={8}
+            pointerHeight={6}
+          />
+          <Text text={labelText} fill="#ffffff" fontSize={13} fontStyle="bold" padding={7} />
+        </Label>
+      )}
+    </>
+  );
 }
 
 interface EditorCanvasProps {
@@ -70,6 +146,10 @@ export default function EditorCanvas({
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1.0);
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
+  const [measureEnabled, setMeasureEnabled] = useState(false);
+  const [measurePoint1, setMeasurePoint1] = useState<MeasurePoint | null>(null);
+  const [measurePoint2, setMeasurePoint2] = useState<MeasurePoint | null>(null);
+  const [measurePreviewPoint, setMeasurePreviewPoint] = useState<MeasurePoint | null>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -131,6 +211,66 @@ export default function EditorCanvas({
       y: pointer.y - mousePointTo.y * newScale,
     });
   }, []);
+
+  const clearMeasure = useCallback(() => {
+    setMeasurePoint1(null);
+    setMeasurePoint2(null);
+    setMeasurePreviewPoint(null);
+  }, []);
+
+  const toggleMeasure = useCallback(() => {
+    if (measureEnabled) {
+      clearMeasure();
+      setMeasureEnabled(false);
+      return;
+    }
+    setSelectedId(null);
+    setMeasureEnabled(true);
+  }, [clearMeasure, measureEnabled]);
+
+  const getCanvasPointer = useCallback((): MeasurePoint | null => {
+    const stage = stageRef.current;
+    const pointer = stage?.getPointerPosition();
+    if (!stage || !pointer) return null;
+
+    const x = (pointer.x - stage.x()) / stage.scaleX();
+    const y = (pointer.y - stage.y()) / stage.scaleY();
+    return {
+      x: Math.max(0, Math.min(pdfWidthPx, x)),
+      y: Math.max(0, Math.min(pdfHeightPx, y)),
+    };
+  }, [pdfWidthPx, pdfHeightPx]);
+
+  const handleStageClick = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (measureEnabled) {
+        const pointer = getCanvasPointer();
+        if (!pointer) return;
+
+        setSelectedId(null);
+        if (!measurePoint1 || measurePoint2) {
+          setMeasurePoint1(pointer);
+          setMeasurePoint2(null);
+          setMeasurePreviewPoint(null);
+          return;
+        }
+
+        setMeasurePoint2(pointer);
+        setMeasurePreviewPoint(null);
+        return;
+      }
+
+      if (e.target === stageRef.current) {
+        setSelectedId(null);
+      }
+    },
+    [getCanvasPointer, measureEnabled, measurePoint1, measurePoint2]
+  );
+
+  const handleStageMouseMove = useCallback(() => {
+    if (!measureEnabled || !measurePoint1 || measurePoint2) return;
+    setMeasurePreviewPoint(getCanvasPointer());
+  }, [getCanvasPointer, measureEnabled, measurePoint1, measurePoint2]);
 
   const handleDragEnd = useCallback(
     async (placementId: number, x: number, y: number) => {
@@ -249,6 +389,12 @@ export default function EditorCanvas({
     setFurnitureItems((prev) => prev.filter((i) => i.id !== id));
     setPlacements((prev) => prev.filter((p) => p.furnitureItemId !== id));
   };
+
+  const measuredDistance =
+    measurePoint1 && measurePoint2
+      ? formatMeasureDistance(measureDistanceCm(measurePoint1, measurePoint2, pixelsPerCm))
+      : null;
+  const measureHint = measurePoint1 ? "Click endpoint" : "Click start point";
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -409,12 +555,11 @@ export default function EditorCanvas({
               x={stagePos.x}
               y={stagePos.y}
               onWheel={handleWheel}
-              onClick={(e) => {
-                if (e.target === stageRef.current) {
-                  setSelectedId(null);
-                }
-              }}
-              draggable
+              onClick={handleStageClick}
+              onMouseMove={handleStageMouseMove}
+              onMouseLeave={() => setMeasurePreviewPoint(null)}
+              draggable={!measureEnabled}
+              style={{ cursor: measureEnabled ? "crosshair" : "default" }}
               onDragEnd={(e) => {
                 if (e.target === stageRef.current) {
                   setStagePos({ x: e.target.x(), y: e.target.y() });
@@ -442,6 +587,7 @@ export default function EditorCanvas({
                       color={item.color}
                       name={item.name}
                       isSelected={selectedId === p.id}
+                      draggable={!measureEnabled}
                       onSelect={() => setSelectedId(p.id)}
                       onDragEnd={(x, y) => handleDragEnd(p.id, x, y)}
                     />
@@ -453,6 +599,14 @@ export default function EditorCanvas({
                   resizeEnabled={false}
                   borderStroke="#2563eb"
                   borderStrokeWidth={2}
+                />
+              </Layer>
+              <Layer listening={false}>
+                <MeasureOverlay
+                  point1={measurePoint1}
+                  point2={measurePoint2}
+                  previewPoint={measurePreviewPoint}
+                  pixelsPerCm={pixelsPerCm}
                 />
               </Layer>
             </Stage>
@@ -484,6 +638,30 @@ export default function EditorCanvas({
           >
             +
           </button>
+          <div className="border-l h-6 mx-2" />
+          <button
+            onClick={toggleMeasure}
+            className={`text-sm px-3 py-1 rounded ${
+              measureEnabled
+                ? "bg-blue-500 text-white hover:bg-blue-600"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            Measure
+          </button>
+          {measureEnabled && (
+            <span className="text-sm text-gray-600">
+              {measuredDistance ? `Distance: ${measuredDistance}` : measureHint}
+            </span>
+          )}
+          {(measurePoint1 || measurePoint2) && (
+            <button
+              onClick={clearMeasure}
+              className="text-sm px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+            >
+              Clear
+            </button>
+          )}
           <div className="border-l h-6 mx-2" />
           {selectedId !== null && (
             <>

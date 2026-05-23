@@ -13,6 +13,7 @@ interface FurniturePieceProps {
   color: string;
   name: string;
   isSelected: boolean;
+  draggable?: boolean;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
 }
@@ -26,6 +27,7 @@ export default function FurniturePiece({
   color,
   name,
   isSelected,
+  draggable = true,
   onSelect,
   onDragEnd,
 }: FurniturePieceProps) {
@@ -37,10 +39,11 @@ export default function FurniturePiece({
       x={x}
       y={y}
       rotation={rotation}
-      draggable
-      onClick={onSelect}
-      onTap={onSelect}
-      onDragStart={onSelect}
+      listening={draggable}
+      draggable={draggable}
+      onClick={draggable ? onSelect : undefined}
+      onTap={draggable ? onSelect : undefined}
+      onDragStart={draggable ? onSelect : undefined}
       onDragEnd={(e) => {
         onDragEnd(e.target.x(), e.target.y());
       }}
