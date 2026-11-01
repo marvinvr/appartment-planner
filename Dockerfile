@@ -1,7 +1,7 @@
 FROM node:24-slim AS deps
 WORKDIR /app
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-COPY --from=oven/bun:1.3.14 /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d /usr/local/bin/bun /usr/local/bin/bun
 COPY package.json bun.lock bunfig.toml ./
 RUN bun install --frozen-lockfile
 
